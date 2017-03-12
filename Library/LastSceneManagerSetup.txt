@@ -1,0 +1,4 @@
+sceneSetups:
+- path: Assets/LuaFramework/ToLua/Examples/02_ScriptsFromFile/ScriptsFromFile.unity
+  isLoaded: 1
+  isActive: 1
