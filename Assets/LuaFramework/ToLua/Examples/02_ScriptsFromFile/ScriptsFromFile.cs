@@ -17,11 +17,32 @@ public class ScriptsFromFile : MonoBehaviour
 #else
         Application.RegisterLogCallback(Log);
 #endif         
-        lua = new LuaState();                
-        lua.Start();        
-        //如果移动了ToLua目录，自己手动修复吧，只是例子就不做配置了
-        string fullPath = Application.dataPath + "\\ToLua/Examples/02_ScriptsFromFile";
-        lua.AddSearchPath(fullPath);        
+        lua = new LuaState();
+        
+        lua.BeginPreLoad();
+        lua.RegFunction("socket.core", LuaOpen_Socket_Core);
+        lua.RegFunction("mime.core", LuaOpen_Mime_Core);
+        lua.EndPreLoad();
+        OpenZbsDebugger();
+
+        lua.Start();
+    }
+
+    [MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+    static int LuaOpen_Socket_Core(IntPtr L)
+    {
+        return LuaDLL.luaopen_socket_core(L);
+    }
+
+    [MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+    static int LuaOpen_Mime_Core(IntPtr L)
+    {
+        return LuaDLL.luaopen_mime_core(L);
+    }
+
+    public void OpenZbsDebugger(string ip = "localhost")
+    {
+        lua.LuaDoString(string.Format("DebugServerIp = '{0}' require(\"mobdebug\").start(DebugServerIp)", ip));
     }
 
     void Log(string msg, string stackTrace, LogType type)
@@ -34,15 +55,15 @@ public class ScriptsFromFile : MonoBehaviour
     {
         GUI.Label(new Rect(100, Screen.height / 2 - 100, 600, 400), strLog);
 
-        if (GUI.Button(new Rect(50, 50, 120, 45), "DoFile"))
+        if (GUI.Button(new Rect(50, 50, 120, 45), "test"))
         {
             strLog = "";
-            lua.DoFile("tolua.lua");                        
+            lua.Require("test");                        
         }
-        else if (GUI.Button(new Rect(50, 150, 120, 45), "Require"))
+        else if (GUI.Button(new Rect(50, 150, 120, 45), "hewei_test.test"))
         {
-            strLog = "";            
-            lua.Require("tolua");            
+            strLog = "";
+            lua.DoFile("hewei_test.test");
         }
 
         lua.Collect();

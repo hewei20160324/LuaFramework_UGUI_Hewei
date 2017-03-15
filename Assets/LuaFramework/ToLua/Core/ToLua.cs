@@ -195,27 +195,13 @@ namespace LuaInterface
             {
                 string fileName = LuaDLL.lua_tostring(L, 1);
 
-                // 针对require 需要特殊处理;
-                if(fileName.EndsWith(".lua") == false)
-                { fileName = fileName.Replace(".", "/"); }
-
-                byte[] buffer = GetLuaBytes(fileName);
-                if (buffer != null)
-                {
-                    Debugger.Log(string.Format("==== Custom Loader Success {0} ====", fileName));
-                }
-                else
-                {
-                    Debugger.LogError(string.Format("==== Custom Loader Failed {0} ====", fileName));
-                }
-
-                if (buffer == null) buffer = LuaFileUtils.Instance.ReadFile(fileName);
+                byte[] buffer = CustomPackageLuaScripts.GetLuaBytes(ref fileName);
                 //byte[] buffer = LuaFileUtils.Instance.ReadFile(fileName);
-
 
                 if (buffer == null)
                 {
-                    string error = LuaFileUtils.Instance.FindFileError(fileName);
+                    //string error = LuaFileUtils.Instance.FindFileError(fileName);
+                    string error = string.Format("cannot open {0}: No such file or directory", fileName);
                     LuaDLL.lua_pushstring(L, error);
                     return 1;
                 }
@@ -224,10 +210,6 @@ namespace LuaInterface
                 {
                     fileName = fileName + ".lua";
                 }
-                //                 if (LuaConst.openZbsDebugger)
-                //                 {
-                //                     fileName = LuaFileUtils.Instance.FindFile(fileName);
-                //                 }
 
                 if (LuaDLL.luaL_loadbuffer(L, buffer, buffer.Length, fileName) != 0)
                 {
@@ -252,23 +234,18 @@ namespace LuaInterface
                 int n = LuaDLL.lua_gettop(L);
 
                 //byte[] buffer = LuaFileUtils.Instance.ReadFile(fileName);
-                byte[] buffer = GetLuaBytes(fileName);
-                if (buffer != null)
-                {
-                    Debugger.Log(string.Format("==== Custom Do File Success {0} ====", fileName));
-                }
-                else
-                {
-                    Debugger.LogError(string.Format("==== Custom Do File Failed {0} ====", fileName));
-                }
-
-                if (buffer == null) buffer = LuaFileUtils.Instance.ReadFile(fileName);
+                byte[] buffer = CustomPackageLuaScripts.GetLuaBytes(ref fileName);
 
                 if (buffer == null)
                 {
                     string error = string.Format("cannot open {0}: No such file or directory", fileName);
-                    error += LuaFileUtils.Instance.FindFileError(fileName);
+                    //error += LuaFileUtils.Instance.FindFileError(fileName);
                     throw new LuaException(error);
+                }
+
+                if (LuaConst.openZbsDebugger && fileName.EndsWith(".lua") == false)
+                {
+                    fileName = fileName + ".lua";
                 }
 
                 if (LuaDLL.luaL_loadbuffer(L, buffer, buffer.Length, fileName) == 0)
@@ -296,23 +273,20 @@ namespace LuaInterface
                 string fileName = LuaDLL.lua_tostring(L, 1);
                 //byte[] buffer = LuaFileUtils.Instance.ReadFile(fileName);
 
-                byte[] buffer = GetLuaBytes(fileName);
-                if (buffer != null)
-                {
-                    Debugger.Log(string.Format("==== Custom Load File Success {0} ====", fileName));
-                }
-                else
-                {
-                    Debugger.LogError(string.Format("==== Custom LoadFile Failed {0} ====", fileName));
-                }
+                byte[] buffer = CustomPackageLuaScripts.GetLuaBytes(ref fileName);
 
                 if (buffer == null) buffer = LuaFileUtils.Instance.ReadFile(fileName);
 
                 if (buffer == null)
                 {
                     string error = string.Format("cannot open {0}: No such file or directory", fileName);
-                    error += LuaFileUtils.Instance.FindFileError(fileName);
+                    //error += LuaFileUtils.Instance.FindFileError(fileName);
                     throw new LuaException(error);
+                }
+
+                if (LuaConst.openZbsDebugger && fileName.EndsWith(".lua") == false)
+                {
+                    fileName = fileName + ".lua";
                 }
 
                 if (LuaDLL.luaL_loadbuffer(L, buffer, buffer.Length, fileName) == 0)
@@ -2404,209 +2378,6 @@ namespace LuaInterface
             {
                 throw new LuaException(string.Format("no overload for method takes '{0}' arguments", c));
             }
-        }
-
-        #region 自定义简易打包;
-        public class LuaIndexData
-        {
-            public int offset;
-            public int size;
-            public byte[] bytes = null;
-        }
-
-        static Dictionary<string, LuaIndexData> mLuaDict = new Dictionary<string, LuaIndexData>();
-        static byte[] contentBytes = null;
-        public static byte[] GetLuaBytes(string key)
-        {
-            key = Path.GetFileNameWithoutExtension(key);
-
-            CheckLuaDictValid();
-
-            LuaIndexData indexData = null;
-            if(mLuaDict.TryGetValue(key, out indexData) == false)
-            {
-                return null;
-            }
-
-            // Debugger.Log("==== GetLuaBytes key is " + key + " =====!!!");
-
-            if (indexData.bytes != null) return indexData.bytes;
-
-            CheckLuaContentValid();
-
-            indexData.bytes = new byte[indexData.size];
-            Array.Copy(contentBytes, indexData.offset, indexData.bytes, 0, indexData.size);
-            return indexData.bytes;
-        }
-
-        static void CheckLuaDictValid()
-        {
-            if (mLuaDict.Count > 0) return;
-
-            //             string luaPath = Application.dataPath + "/Resources/";
-            //             string indexFile = luaPath + "index.bytes";
-            //             if (File.Exists(indexFile) == false) return;
-            // 
-            //             byte[] buffer = File.ReadAllBytes(indexFile);
-            TextAsset textAsset = Resources.Load<TextAsset>("index") as TextAsset;
-            byte[] buffer = (textAsset != null) ? textAsset.bytes : null;
-
-            int offset = 0;
-            while (offset < buffer.Length)
-            {
-                LuaIndexData indexData = new LuaIndexData();
-                indexData.offset = ReadInt(buffer, ref offset);
-                indexData.size = ReadInt(buffer, ref offset);
-                string key = ReadString(buffer, ref offset);
-                if(mLuaDict.ContainsKey(key))
-                {
-                    Debugger.LogWarning("==== Reapeat Lua File is " + key + " =====!!!");
-                    mLuaDict[key] = indexData;
-                }
-                else
-                {
-                    mLuaDict.Add(key, indexData);
-                }
-            }
-        }
-
-        static void CheckLuaContentValid()
-        {
-            if (contentBytes != null) return;
-
-            //             string luaPath = Application.dataPath + "/Resources/";
-            //             string contentFile = luaPath + "content.bytes";
-            // 
-            //             if (File.Exists(contentFile) == false) return;
-            // 
-            //             contentBytes = File.ReadAllBytes(contentFile);
-
-            TextAsset textAsset = Resources.Load<TextAsset>("content") as TextAsset;
-            contentBytes = (textAsset != null) ? textAsset.bytes : null;
-        }
-
-        public static void CombineAllLuaFiles()
-        {
-            string luaPath = Application.dataPath + "/Resources/";
-            string indexFile = luaPath + "index.bytes";
-            string conentFile = luaPath + "content.bytes";
-            if (File.Exists(indexFile)) File.Delete(indexFile);
-            if (File.Exists(conentFile)) File.Delete(conentFile);
-
-            Debugger.Log("==== combine Lua path is " + luaPath + " =====!!!");
-
-            FileStream indexFS = new FileStream(indexFile, FileMode.Create);
-            FileStream contentFS = new FileStream(conentFile, FileMode.Create);
-
-            string[] luaPathExtension = new string[] { "/LuaFramework/Lua/", "/LuaFramework/ToLua/Lua/" };
-            List<string> luaFileList = new List<string>();
-            for (int nIdx = 0; nIdx < luaPathExtension.Length; nIdx++)
-            {
-                string combineLuaPath = Application.dataPath + luaPathExtension[nIdx];
-                GetAllLuaFiles(combineLuaPath, ref luaFileList);
-            }
-
-            int offset = 0;
-            CombineLuaFiles(luaFileList, indexFS, contentFS, ref offset);
-
-            indexFS.Dispose();
-            indexFS.Close();
-            contentFS.Dispose();
-            contentFS.Close();
-        }
-
-        static void CombineLuaFiles(List<string> luaFileList, FileStream indexFS, FileStream contentFS, ref int offset)
-        {
-            if (indexFS == null || contentFS == null || luaFileList == null) return;
-
-            int combineFileCount = 0;
-            for (int nIdx = 0; nIdx < luaFileList.Count; nIdx++)
-            {
-                int size = 0;
-                string keyName;
-                string luaFilePath = luaFileList[nIdx];
-
-                string extension = Path.GetExtension(luaFilePath);
-                if (extension != ".lua")
-                { continue; }
-
-                keyName = Path.GetFileNameWithoutExtension(luaFilePath);
-                //if(keyName == "tolua") { continue; }
-
-                Debugger.Log(string.Format("=========== Combine Lua File {0} ==============", luaFilePath));
-                byte[] buffer = File.ReadAllBytes(luaFilePath);
-                if (buffer == null) continue;
-
-                size = buffer.Length;
-                WriteInt(indexFS, offset);
-                WriteInt(indexFS, size);
-                WriteString(indexFS, keyName);
-
-                contentFS.Write(buffer, 0, buffer.Length);
-
-                offset += size;
-                combineFileCount++;
-            }
-
-            Debugger.Log(string.Format("=========== Combine Lua File Nums {0} ==============", combineFileCount.ToString()));
-        }
-
-        static void GetAllLuaFiles(string path, ref List<string> pathList)
-        {
-            if (pathList == null || string.IsNullOrEmpty(path)) return;
-
-            string[] luaFiles = Directory.GetFiles(path);
-            if(luaFiles != null)
-            {
-                pathList.AddRange(luaFiles);
-            }
-
-            string[] dirs = Directory.GetDirectories(path);
-            if (dirs == null || dirs.Length == 0) return;
-            for (int nIdx = 0; nIdx < dirs.Length; nIdx++)
-            {
-                GetAllLuaFiles(dirs[nIdx], ref pathList);
-            }
-        }
-
-        static void WriteInt(FileStream fs, int val)
-        {
-            if (fs == null) return;
-            byte[] bytes = BitConverter.GetBytes(val);
-            fs.Write(bytes, 0, bytes.Length);
-        }
-
-        static void WriteString(FileStream fs, string str)
-        {
-            if (fs == null) return;
-            if(string.IsNullOrEmpty(str))
-            {
-                WriteInt(fs, 0);
-                return;
-            }
-            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(str);
-            WriteInt(fs, bytes.Length);
-            fs.Write(bytes, 0, bytes.Length);
-        }
-
-        static int ReadInt(byte[] bytes, ref int offset)
-        {
-            if (bytes == null || offset + sizeof(int) > bytes.Length) return 0;
-            int nRet = BitConverter.ToInt32(bytes, offset);
-            offset += sizeof(int);
-            return nRet;
-        }
-
-        static string ReadString(byte[] bytes, ref int offset)
-        {
-            int length = ReadInt(bytes, ref offset);
-            if (length == 0) return null;
-            if (offset + length > bytes.Length) return null;
-
-            string str = System.Text.Encoding.UTF8.GetString(bytes, offset, length);
-            offset += length;
-            return str;
-        }
-#endregion
+        }  
     }
 }

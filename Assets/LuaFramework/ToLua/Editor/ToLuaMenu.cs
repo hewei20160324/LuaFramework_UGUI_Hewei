@@ -1272,6 +1272,6 @@ public static class ToLuaMenu
     [MenuItem("Lua/CombineLuaFiles")]
     static void CombineLuaFiles()
     {
-        ToLua.CombineAllLuaFiles();
+        CustomPackageLuaScripts.CombineAllLuaFiles();
     }
 }

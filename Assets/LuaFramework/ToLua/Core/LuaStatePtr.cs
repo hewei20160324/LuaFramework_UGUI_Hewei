@@ -509,14 +509,14 @@ namespace LuaInterface
 
         public int LuaRequire(string fileName)
         {
-#if UNITY_EDITOR
-            string str = Path.GetExtension(fileName);
-
-            if (str == ".lua")
-            {
-                throw new LuaException("Require not need file extension: " + str);
-            }
-#endif
+// #if UNITY_EDITOR
+//             string str = Path.GetExtension(fileName);
+// 
+//             if (str == ".lua")
+//             {
+//                 throw new LuaException("Require not need file extension: " + str);
+//             }
+// #endif
             return LuaDLL.tolua_require(L, fileName);
         }
 

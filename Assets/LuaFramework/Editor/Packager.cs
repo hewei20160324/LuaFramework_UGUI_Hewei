@@ -224,7 +224,7 @@ public class Packager {
         StreamWriter sw = new StreamWriter(fs);
         for (int i = 0; i < files.Count; i++) {
             string file = files[i];
-            string ext = Path.GetExtension(file);
+            //string ext = Path.GetExtension(file);
             if (file.EndsWith(".meta") || file.Contains(".DS_Store")) continue;
 
             string md5 = Util.md5file(file);
